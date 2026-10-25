@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // メンバー
+    match /members/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['name','t'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 12;
+      allow delete: if true;
+    }
+
+    // 各メンバーの予定（○と△）
+    match /avail/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['days','maybe','updated'])
+        && request.resource.data.days is map && request.resource.data.maybe is map;
+      allow delete: if true;
+    }
+
+    // 決定事項
+    match /events/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['date','start','end','title','note','type','t','status','hist'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 30
+        && request.resource.data.note is string && request.resource.data.note.size() <= 60;
+      allow delete: if true;
+    }
+
+    // 出欠
+    match /rsvp/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['eid','mid','v'])
+        && request.resource.data.v in ['go','no'];
+      allow delete: if true;
+    }
+
+    // チャット
+    match /chat/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['mid','text','t'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300;
+      allow update: if false;
+      allow delete: if true;
+    }
+
+    // 管理者
+    match /meta/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['ids','id']);
+      allow delete: if false;
+    }
+
+    // 合言葉（暗号化した値だけ）
+    match /auth/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['h'])
+        && request.resource.data.h is string && request.resource.data.h.size() == 64;
+      allow delete: if true;
+    }
+  }
+}
