@@ -5,7 +5,7 @@ var HRS=[8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
 var DOW="日月火水木金土";
 var $=function(s){return document.querySelector(s)};
 var now=new Date();
-var S={bulk:{dows:[],weeks:4,start:19,end:23,kind:"g"},bulkOpen:false,bmsg:"",noconn:false,sn:"",sa:"",smsg:"",ml:false,mFresh:false,metaFresh:false,chat:[],msgSel:"",lastRead:0,stick:false,enterCh:false,maybe:{},auth:{},al:false,pend:"",pmsg:"",amsg:"",cf:null,admins:[],rsvp:{},editId:"",events:[],form:{type:"practice",date:"",start:19,end:22,title:"",note:""},msg:"",tab:"in",y:now.getFullYear(),m:now.getMonth(),sel:null,rsel:null,me:"",roster:[],avail:{},days:{},daysFor:"",db:null,rl:false,err:""};
+var S={mw:4,mmsg:"",bulk:{dows:[],weeks:4,start:19,end:23,kind:"g"},bulkOpen:false,bmsg:"",noconn:false,sn:"",sa:"",smsg:"",ml:false,mFresh:false,metaFresh:false,chat:[],msgSel:"",lastRead:0,stick:false,enterCh:false,maybe:{},auth:{},al:false,pend:"",pmsg:"",amsg:"",cf:null,admins:[],rsvp:{},editId:"",events:[],form:{type:"practice",date:"",start:19,end:22,title:"",note:""},msg:"",tab:"in",y:now.getFullYear(),m:now.getMonth(),sel:null,rsel:null,me:"",roster:[],avail:{},days:{},daysFor:"",db:null,rl:false,err:""};
 function key(y,m,d){return y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0")}
 var todayK=key(now.getFullYear(),now.getMonth(),now.getDate());
 function lab(k){var p=k.split("-");var dt=new Date(+p[0],+p[1]-1,+p[2]);return (+p[1])+"/"+(+p[2])+"（"+DOW[dt.getDay()]+"）"}
@@ -163,7 +163,7 @@ function renderInner(){
       }
     }else{
       h+='<div class="card"><div class="who-bar"><b>'+esc(nameOf(S.me))+'</b><button class="lnk" data-act="switch">名前を変える</button></div></div>';
-      h+='<div class="card"><p class="sub">日付をタップして、行ける時間を選んでね</p>'+calHTML("in")+'<div class="row" style="margin-top:12px"><button data-act="cpweek">📋 先週と同じにする</button></div><p class="sub" style="margin:6px 0 0">選んだ日の週（未選択なら今週）に、先週の入力をコピーするよ</p>';
+      h+='<div class="card"><p class="sub">日付をタップして、行ける時間を選んでね</p>'+calHTML("in")+mostlyHTML()+'<div class="row" style="margin-top:12px"><button data-act="cpweek">📋 先週と同じにする</button></div><p class="sub" style="margin:6px 0 0">選んだ日の週（未選択なら今週）に、先週の入力をコピーするよ</p>';
       if(S.sel){
         var gs=S.days[S.sel]||[],ms=S.maybe[S.sel]||[];
         h+='<p class="sub" style="margin-top:14px"><b style="color:var(--ink);font-size:16px">'+lab(S.sel)+'</b>　時間をタップ：○ → △ → なし</p><div class="lg"><span><i class="ly"></i>○ 行ける</span><span><i class="lc"></i>△ 行けるかも</span></div><div class="hrs">';
@@ -349,6 +349,9 @@ function setupHTML(){
   var dn=S.sn||"ピカトモ\n絶ラティ\nあずき\nポケユナすき\n小麦粉ワニ\nイワガブ",da=S.sa||"イワガブ";
   return '<div class="card"><p class="sub">初期設定（最初の1回だけ）</p><div class="fld"><label for="sn">メンバーの名前（1行に1人）</label><textarea id="sn" rows="7">'+esc(dn)+'</textarea></div><div class="fld"><label for="sa">管理者になる人の名前（上の中から1人）</label><input type="text" id="sa" value="'+esc(da)+'"></div><div class="row"><button data-act="setup">この内容ではじめる</button></div><div class="st">'+esc(S.smsg)+"</div></div>"
 }
+function mostlyHTML(){
+  return '<div class="mostly"><div><b>🙌 だいたい行ける人用</b>これから<select id="mw" aria-label="期間">'+[1,2,4,8,12].map(function(w){return '<option value="'+w+'"'+(w===S.mw?" selected":"")+">"+w+"週間</option>"}).join("")+"</select>ぜんぶ○にして、行けない日だけ消す"+(S.mmsg?'<br><span style="color:var(--gnt)">'+esc(S.mmsg)+"</span>":"")+'</div><button data-act="mostly">ぜんぶ○に</button></div>'
+}
 function bulkHTML(){
   var b=S.bulk;
   if(!S.bulkOpen)return '<div class="card"><button class="bt" data-act="btoggle">⚡ まとめて入力（毎週同じ時間ならこれが速い） ▼</button></div>';
@@ -425,6 +428,14 @@ document.addEventListener("click",function(e){
   }
   if(ds.cf){var cfn=S.cf;S.cf=null;$("#cf").innerHTML="";if(ds.cf==="ok"&&cfn)cfn();return}
   if(ds.pick){if(S.auth[ds.pick]){S.pend=ds.pick;S.pmsg="";render();var pi=$("#pwin");if(pi)pi.focus()}else{ls("s","us-ok","");pick(ds.pick)}return}
+  if(ds.act==="mostly"){
+    var wk=S.mw||4,n=wk*7,td=new Date();
+    ask("今日から"+wk+"週間（"+n+"日分）の8時〜24時を、ぜんぶ○にする？ すでに入れていた分（△も）は上書きされるよ。行けない日は、あとで日付をタップして「この日をクリア」で消してね。",function(){
+      for(var i=0;i<n;i++){var kk=dkey(addDays(td,i));S.days[kk]=HRS.slice();S.maybe[kk]=[]}
+      S.mmsg=n+"日分を○にしたよ。行けない日をタップして「この日をクリア」で消してね";render();save()
+    });
+    return
+  }
   if(ds.act==="cpweek"){copyWeek();return}
   if(ds.act==="pwback"){S.pend="";S.pmsg="";render();return}
   if(ds.act==="pwok"){
@@ -503,7 +514,7 @@ document.addEventListener("click",function(e){
   if(ds.copy){var e2=findEv(ds.copy);if(!e2)return;copyText("⚡United Spark 決定事項\n"+lab(e2.date)+" "+e2.start+":00–"+e2.end+":00\n"+e2.title+(e2.note?"\n"+e2.note:""),t);return}
   if(ds.evdel){ask("この決定事項を削除する？",function(){S.db.doc("events/"+ds.evdel).delete().catch(function(){})});return}
   if(ds.k&&t.classList.contains("top")){S.rsel=ds.k;var q=ds.k.split("-");S.y=+q[0];S.m=+q[1]-1;render();return}
-  if(ds.k&&S.tab==="in"){S.sel=ds.k;render();return}
+  if(ds.k&&S.tab==="in"){S.sel=ds.k;S.mmsg="";render();return}
   if(ds.k&&S.tab==="out"){S.rsel=ds.k;var q2=ds.k.split("-");S.y=+q2[0];S.m=+q2[1]-1;render();return}
   if(ds.h){
     var x=+ds.h,g=(S.days[S.sel]||[]).slice(),mb=(S.maybe[S.sel]||[]).slice(),gi=g.indexOf(x),mi=mb.indexOf(x);
@@ -525,6 +536,7 @@ document.addEventListener("click",function(e){
 
 function onField(e){
   var t=e.target,f=S.form;
+  if(t.id==="mw"){S.mw=+t.value;return}
   if(t.id==="fd")f.date=t.value;else if(t.id==="fs")f.start=+t.value;else if(t.id==="fe")f.end=+t.value;else if(t.id==="ft")f.title=t.value;else if(t.id==="fn")f.note=t.value;else if(t.id==="bs")S.bulk.start=+t.value;else if(t.id==="be")S.bulk.end=+t.value;else if(t.id==="bw")S.bulk.weeks=+t.value
 }
 document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="pwin"){e.preventDefault();var b=document.querySelector("[data-act=pwok]");if(b)b.click()}});
