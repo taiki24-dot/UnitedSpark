@@ -5,7 +5,7 @@ var HRS=[8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
 var DOW="日月火水木金土";
 var $=function(s){return document.querySelector(s)};
 var now=new Date();
-var S={sn:"",sa:"",smsg:"",ml:false,mFresh:false,metaFresh:false,chat:[],msgSel:"",lastRead:0,stick:false,enterCh:false,maybe:{},auth:{},al:false,pend:"",pmsg:"",amsg:"",cf:null,admins:[],rsvp:{},editId:"",events:[],form:{type:"practice",date:"",start:19,end:22,title:"",note:""},msg:"",tab:"in",y:now.getFullYear(),m:now.getMonth(),sel:null,rsel:null,me:"",roster:[],avail:{},days:{},daysFor:"",db:null,rl:false,err:""};
+var S={bulk:{dows:[],weeks:4,start:19,end:23,kind:"g"},bulkOpen:false,bmsg:"",noconn:false,sn:"",sa:"",smsg:"",ml:false,mFresh:false,metaFresh:false,chat:[],msgSel:"",lastRead:0,stick:false,enterCh:false,maybe:{},auth:{},al:false,pend:"",pmsg:"",amsg:"",cf:null,admins:[],rsvp:{},editId:"",events:[],form:{type:"practice",date:"",start:19,end:22,title:"",note:""},msg:"",tab:"in",y:now.getFullYear(),m:now.getMonth(),sel:null,rsel:null,me:"",roster:[],avail:{},days:{},daysFor:"",db:null,rl:false,err:""};
 function key(y,m,d){return y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0")}
 var todayK=key(now.getFullYear(),now.getMonth(),now.getDate());
 function lab(k){var p=k.split("-");var dt=new Date(+p[0],+p[1]-1,+p[2]);return (+p[1])+"/"+(+p[2])+"（"+DOW[dt.getDay()]+"）"}
@@ -128,7 +128,14 @@ function pgHTML(){
 }
 
 /* ---- render ---- */
+var rsT=0;
+function renderSoon(){if(rsT)return;rsT=1;var f=function(){rsT=0;render()};if(window.requestAnimationFrame)window.requestAnimationFrame(f);else setTimeout(f,16)}
 function render(){
+  try{renderInner()}catch(e){
+    try{console.error(e);$("#app").innerHTML='<div class="card"><p class="sub">表示でエラーが出たよ（タブは押せるよ）</p><p style="margin:0;font-size:12px;word-break:break-all">'+esc(String(e&&e.message||e))+"</p></div>"}catch(e2){}
+  }
+}
+function renderInner(){
   var isL=isAdmin();
   if(S.tab==="ld"&&!isL)S.tab="in";
   var h="";
@@ -140,6 +147,7 @@ function render(){
   document.body.className=S.tab==="ch"?"chatm":"";
   renderNext();
   if(S.err)h+='<div class="card">'+esc(S.err)+"</div>";
+  if(S.noconn&&!S.mFresh)h+='<div class="card"><p class="sub">⚠ Firebaseのサーバーにつながれてないよ</p><p style="margin:0;font-size:13px;line-height:1.7">次を確認してね：<br>① Firestore Database を作成した（Firebaseの「データ」タブが見える）<br>② config.js の値が自分のプロジェクトのもの（projectId など）<br>③ ルールを貼って「公開」した<br>④ スマホの通信状況</p></div>';
   if((!S.rl||!S.al||!S.ml)&&!S.err){$("#app").innerHTML='<p class="empty">読み込み中…</p>';return}
   if(S.db&&S.mFresh&&S.metaFresh&&!S.roster.length&&!S.admins.length){$("#app").innerHTML=h+setupHTML();$("#cbar").hidden=true;return}
   if(S.tab==="in"||S.tab==="out")h+=evHTML();
@@ -155,14 +163,14 @@ function render(){
       }
     }else{
       h+='<div class="card"><div class="who-bar"><b>'+esc(nameOf(S.me))+'</b><button class="lnk" data-act="switch">名前を変える</button></div></div>';
-      h+='<div class="card"><p class="sub">日付をタップして、行ける時間を選んでね</p>'+calHTML("in");
+      h+='<div class="card"><p class="sub">日付をタップして、行ける時間を選んでね</p>'+calHTML("in")+'<div class="row" style="margin-top:12px"><button data-act="cpweek">📋 先週と同じにする</button></div><p class="sub" style="margin:6px 0 0">選んだ日の週（未選択なら今週）に、先週の入力をコピーするよ</p>';
       if(S.sel){
         var gs=S.days[S.sel]||[],ms=S.maybe[S.sel]||[];
         h+='<p class="sub" style="margin-top:14px"><b style="color:var(--ink);font-size:16px">'+lab(S.sel)+'</b>　時間をタップ：○ → △ → なし</p><div class="lg"><span><i class="ly"></i>○ 行ける</span><span><i class="lc"></i>△ 行けるかも</span></div><div class="hrs">';
         HRS.forEach(function(x){var st=gs.indexOf(x)>=0?"g":ms.indexOf(x)>=0?"m":"";h+='<button class="h '+st+'" data-h="'+x+'" aria-label="'+x+'時 '+(st==="g"?"行ける":st==="m"?"行けるかも":"未選択")+'">'+x+":00<small>"+(st==="g"?"○":st==="m"?"△":"")+"</small></button>"});
-        h+='</div><div class="row"><button data-act="all">終日○</button><button data-act="clr">この日をクリア</button></div>'
+        h+='</div><div class="bands"><button data-band="8|12">午前○</button><button data-band="12|18">午後○</button><button data-band="18|24">夜○</button></div><div class="row"><button data-act="all">終日○</button><button data-act="clr">この日をクリア</button></div>'
       }else h+='<p class="empty" style="margin-top:12px">まず日付を選んでね</p>';
-      h+='<div class="st'+(stText.indexOf("✓")>0?" ok":"")+'" id="st">'+esc(stText)+"</div></div>"
+      h+='<div class="st'+(stText.indexOf("✓")>0?" ok":"")+'" id="st">'+esc(stText)+"</div></div>"+bulkHTML()
     }
   }else if(S.tab==="out"){
     var N=S.roster.length,list=best(),done=0;
@@ -270,6 +278,24 @@ function copyText(txt,btn){
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){done(true)},fb)}else fb()}catch(e){fb()}
 }
 
+/* ---- copy last week ---- */
+function weekStart(k){var p=k.split("-"),d=new Date(+p[0],+p[1]-1,+p[2]);d.setDate(d.getDate()-d.getDay());return d}
+function addDays(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
+function dkey(d){return key(d.getFullYear(),d.getMonth(),d.getDate())}
+function copyWeek(){
+  var base=weekStart(S.sel||todayK),pairs=[],i;
+  for(i=0;i<7;i++){
+    var to=addDays(base,i),from=addDays(to,-7),tk=dkey(to),fk=dkey(from);
+    if(tk>=todayK&&((S.days[fk]||[]).length||(S.maybe[fk]||[]).length))pairs.push([fk,tk])
+  }
+  if(!pairs.length){setSt("コピーできる日がないよ（先週に入力がない、または今週分がもう過ぎてるよ）");return}
+  var src=lab(dkey(addDays(base,-7)))+"〜"+lab(dkey(addDays(base,-1))),dst=lab(dkey(base))+"〜"+lab(dkey(addDays(base,6)));
+  ask("先週（"+src+"）の入力がある"+pairs.length+"日分を、この週（"+dst+"）にコピーする？ 同じ日にもう入れていた分は上書きされるよ。",function(){
+    pairs.forEach(function(pr){S.days[pr[1]]=(S.days[pr[0]]||[]).slice();S.maybe[pr[1]]=(S.maybe[pr[0]]||[]).slice()});
+    render();save()
+  })
+}
+
 /* ---- types, countdown, chat ---- */
 var TYPES=[{id:"practice",n:"練習",c:"#ffe033"},{id:"match",n:"大会",c:"#ff5fa8"},{id:"meet",n:"ミーティング",c:"#3fe0ff"},{id:"other",n:"その他",c:"#5dffa0"}];
 var PAL=["#ffe033","#3fe0ff","#ff5fa8","#5dffa0","#ff8a3d","#8b6bff"];
@@ -323,6 +349,17 @@ function setupHTML(){
   var dn=S.sn||"ピカトモ\n絶ラティ\nあずき\nポケユナすき\n小麦粉ワニ\nイワガブ",da=S.sa||"イワガブ";
   return '<div class="card"><p class="sub">初期設定（最初の1回だけ）</p><div class="fld"><label for="sn">メンバーの名前（1行に1人）</label><textarea id="sn" rows="7">'+esc(dn)+'</textarea></div><div class="fld"><label for="sa">管理者になる人の名前（上の中から1人）</label><input type="text" id="sa" value="'+esc(da)+'"></div><div class="row"><button data-act="setup">この内容ではじめる</button></div><div class="st">'+esc(S.smsg)+"</div></div>"
 }
+function bulkHTML(){
+  var b=S.bulk;
+  if(!S.bulkOpen)return '<div class="card"><button class="bt" data-act="btoggle">⚡ まとめて入力（毎週同じ時間ならこれが速い） ▼</button></div>';
+  var h='<div class="card"><button class="bt" data-act="btoggle">⚡ まとめて入力 ▲</button>';
+  h+='<p class="sub" style="margin-top:12px">① 曜日（いくつでもOK）</p><div class="dw7">'+DOW.split("").map(function(d,i){return '<button data-bdow="'+i+'" aria-pressed="'+(b.dows.indexOf(i)>=0)+'">'+d+"</button>"}).join("")+"</div>";
+  h+='<p class="sub" style="margin-top:12px">② 時間</p><div class="bands"><button data-bband="8|12">午前</button><button data-bband="12|18">午後</button><button data-bband="18|24">夜</button><button data-bband="8|24">終日</button></div>';
+  h+='<div class="fld two"><div><label for="bs">開始</label><select id="bs">'+opts(8,23,b.start)+'</select></div><div><label for="be">終了</label><select id="be">'+opts(9,24,b.end)+"</select></div></div>";
+  h+='<p class="sub" style="margin-top:12px">③ 期間と種類</p><div class="fld two"><div><select id="bw" aria-label="期間">'+[1,2,4,8,12].map(function(w){return '<option value="'+w+'"'+(w===b.weeks?" selected":"")+">今日から"+w+"週間</option>"}).join("")+'</select></div><div class="bk2"><button data-bkind="g" aria-pressed="'+(b.kind==="g")+'">○ 行ける</button><button data-bkind="m" aria-pressed="'+(b.kind==="m")+'">△ かも</button></div></div>';
+  h+='<div class="row"><button data-act="bapply">この内容で入力</button><button class="dng" data-act="bclear">その曜日・時間を消す</button></div><div class="st'+(S.bmsg.indexOf("✓")>0?" ok":"")+'">'+esc(S.bmsg)+"</div></div>";
+  return h
+}
 /* ---- events ---- */
 function pick(id){
   S.me=id;ls("s","us-me",id);S.sel=null;initDays(id);stText="";render()
@@ -359,8 +396,36 @@ document.addEventListener("click",function(e){
     Promise.all(names.map(function(n,i){return S.db.doc("members/"+ids[i]).set({name:n,t:Date.now()+i})})).then(function(){return S.db.doc("meta/admins").set({ids:[ids[names.indexOf(an)]]})}).then(function(){S.smsg=""},function(){S.smsg="作成できなかった。Firebaseの設定とルールを確認してね";render()});
     return
   }
+  if(ds.act==="btoggle"){S.bulkOpen=!S.bulkOpen;render();return}
+  if(ds.bdow){var dn=+ds.bdow,bi=S.bulk.dows.indexOf(dn);if(bi>=0)S.bulk.dows.splice(bi,1);else S.bulk.dows.push(dn);render();return}
+  if(ds.bband){var bp=ds.bband.split("|");S.bulk.start=+bp[0];S.bulk.end=+bp[1];render();return}
+  if(ds.bkind){S.bulk.kind=ds.bkind;render();return}
+  if(ds.act==="bapply"||ds.act==="bclear"){
+    var bk=S.bulk,clr=ds.act==="bclear",by3=function(p,r){return p-r},bn=0;
+    if(!bk.dows.length){S.bmsg="曜日を選んでね";render();return}
+    if(bk.end<=bk.start){S.bmsg="終了は開始より後にしてね";render();return}
+    var bh2=HRS.filter(function(x){return x>=bk.start&&x<bk.end});
+    for(var bj=0;bj<bk.weeks*7;bj++){
+      var dd=new Date();dd.setDate(dd.getDate()+bj);
+      if(bk.dows.indexOf(dd.getDay())<0)continue;
+      var kk=key(dd.getFullYear(),dd.getMonth(),dd.getDate()),g3=(S.days[kk]||[]).slice(),m3=(S.maybe[kk]||[]).slice();
+      bh2.forEach(function(x){
+        g3=g3.filter(function(y){return y!==x});m3=m3.filter(function(y){return y!==x});
+        if(!clr){(bk.kind==="g"?g3:m3).push(x)}
+      });
+      g3.sort(by3);m3.sort(by3);S.days[kk]=g3;S.maybe[kk]=m3;bn++
+    }
+    S.bmsg=bn+"日分を"+(clr?"消したよ ✓":"入力したよ ✓");render();save();return
+  }
+  if(ds.band){
+    var bq=ds.band.split("|"),bh=HRS.filter(function(x){return x>=+bq[0]&&x<+bq[1]}),g2=(S.days[S.sel]||[]).slice(),m2=(S.maybe[S.sel]||[]).slice(),by2=function(p,r){return p-r};
+    var allin=bh.every(function(x){return g2.indexOf(x)>=0});
+    if(allin){g2=g2.filter(function(x){return bh.indexOf(x)<0})}else{bh.forEach(function(x){if(g2.indexOf(x)<0)g2.push(x);m2=m2.filter(function(y){return y!==x})})}
+    g2.sort(by2);S.days[S.sel]=g2;S.maybe[S.sel]=m2;render();save();return
+  }
   if(ds.cf){var cfn=S.cf;S.cf=null;$("#cf").innerHTML="";if(ds.cf==="ok"&&cfn)cfn();return}
   if(ds.pick){if(S.auth[ds.pick]){S.pend=ds.pick;S.pmsg="";render();var pi=$("#pwin");if(pi)pi.focus()}else{ls("s","us-ok","");pick(ds.pick)}return}
+  if(ds.act==="cpweek"){copyWeek();return}
   if(ds.act==="pwback"){S.pend="";S.pmsg="";render();return}
   if(ds.act==="pwok"){
     var pin=$("#pwin"),pid=S.pend;if(!pin||!pid)return;
@@ -460,7 +525,7 @@ document.addEventListener("click",function(e){
 
 function onField(e){
   var t=e.target,f=S.form;
-  if(t.id==="fd")f.date=t.value;else if(t.id==="fs")f.start=+t.value;else if(t.id==="fe")f.end=+t.value;else if(t.id==="ft")f.title=t.value;else if(t.id==="fn")f.note=t.value
+  if(t.id==="fd")f.date=t.value;else if(t.id==="fs")f.start=+t.value;else if(t.id==="fe")f.end=+t.value;else if(t.id==="ft")f.title=t.value;else if(t.id==="fn")f.note=t.value;else if(t.id==="bs")S.bulk.start=+t.value;else if(t.id==="be")S.bulk.end=+t.value;else if(t.id==="bw")S.bulk.weeks=+t.value
 }
 document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="pwin"){e.preventDefault();var b=document.querySelector("[data-act=pwok]");if(b)b.click()}});
 document.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.isComposing&&e.keyCode!==229&&e.target&&e.target.id==="cmsg"){e.preventDefault();var b=document.querySelector("[data-act=csend]");if(b)b.click()}});
@@ -477,34 +542,35 @@ if(window.getDb){
   window.getDb().then(function(db){
     if(!db){S.err="共有データにつながっていません。Firebaseの設定（config.js）と通信を確認してね";render();return}
     S.db=db;
+    setTimeout(function(){if(!S.mFresh){S.noconn=true;render()}},8000);
     db.collection("members").onSnapshot(function(q){
       S.roster=q.docs.map(function(x){var d=x.data()||{};return{id:x.id,name:d.name||"",t:d.t||0}}).sort(function(a,b){return a.t-b.t});
       S.rl=true;S.mFresh=q.fromCache!==true;
       if(S.me&&S.daysFor!==S.me&&nameOf(S.me)){initDays(S.me)}
-      render()
-    },function(){S.err="メンバーを読み込めなかった";render()});
+      renderSoon()
+    },function(e){S.err="メンバーを読み込めなかった（"+((e&&e.code)||"unknown")+"）";renderSoon()});
     db.collection("avail").onSnapshot(function(q){
       var all={};q.docs.forEach(function(x){all[x.id]=x.data()});S.avail=all;
       if(S.me&&S.daysFor!==S.me&&nameOf(S.me)){initDays(S.me)}
-      if(S.tab==="out"||!S.me)render()
-    },function(){S.err="みんなの予定を読み込めなかった";render()});
+      if(S.tab==="out"||!S.me)renderSoon()
+    },function(e){S.err="みんなの予定を読み込めなかった（"+((e&&e.code)||"unknown")+"）";renderSoon()});
     db.collection("events").onSnapshot(function(q){
       S.events=q.docs.map(function(x){var d=x.data()||{};return{id:x.id,date:d.date||"",start:d.start||0,end:d.end||0,title:d.title||"",note:d.note||"",t:d.t||0,type:d.type||"practice",status:d.status||"on",hist:d.hist||[]}}).filter(function(e){return e.date});
-      render()
+      renderSoon()
     },function(){});
     db.collection("rsvp").onSnapshot(function(q){
-      var r={};q.docs.forEach(function(x){r[x.id]=x.data()||{}});S.rsvp=r;render()
+      var r={};q.docs.forEach(function(x){r[x.id]=x.data()||{}});S.rsvp=r;renderSoon()
     },function(){});
     db.collection("chat").onSnapshot(function(q){
-      S.chat=q.docs.map(function(x){var d=x.data()||{};return{id:x.id,mid:d.mid||"",text:d.text||"",t:d.t||0}}).sort(function(a,b){return a.t-b.t});render()
+      S.chat=q.docs.map(function(x){var d=x.data()||{};return{id:x.id,mid:d.mid||"",text:d.text||"",t:d.t||0}}).sort(function(a,b){return a.t-b.t});renderSoon()
     },function(){});
     db.collection("meta").onSnapshot(function(q){
       var ad=null,lg="";q.docs.forEach(function(x){var d=x.data()||{};if(x.id==="admins")ad=d.ids||[];if(x.id==="leader")lg=d.id||""});
-      S.admins=ad!==null?ad:(lg?[lg]:[]);S.ml=true;S.metaFresh=q.fromCache!==true;render()
-    },function(){S.ml=true;render()});
+      S.admins=ad!==null?ad:(lg?[lg]:[]);S.ml=true;S.metaFresh=q.fromCache!==true;renderSoon()
+    },function(e){S.ml=true;S.err="管理者情報を読み込めなかった（"+((e&&e.code)||"unknown")+"）";renderSoon()});
     db.collection("auth").onSnapshot(function(q){
-      var a={};q.docs.forEach(function(x){a[x.id]=(x.data()||{}).h||""});S.auth=a;S.al=true;validateMe();render()
-    },function(){S.al=true;render()})
+      var a={};q.docs.forEach(function(x){a[x.id]=(x.data()||{}).h||""});S.auth=a;S.al=true;validateMe();renderSoon()
+    },function(e){S.al=true;S.err="合言葉情報を読み込めなかった（"+((e&&e.code)||"unknown")+"）";renderSoon()})
   })
-}else{S.err="共有データにつながっていません";render()}
+}else{S.err="共有データにつながっていません";renderSoon()}
 })();
