@@ -23,7 +23,7 @@ try {
         onSnapshot(cb, err) {
           return onSnapshot(
             collection(fs, name),
-                        { includeMetadataChanges: true }
+            { includeMetadataChanges: true }, // 端末の保存分→サーバーの最新、の切り替わりも受け取る
             (snap) => cb({ fromCache: snap.metadata.fromCache, docs: snap.docs.map((d) => ({ id: d.id, data: () => d.data() })) }),
             err
           );
