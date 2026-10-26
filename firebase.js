@@ -23,6 +23,7 @@ try {
         onSnapshot(cb, err) {
           return onSnapshot(
             collection(fs, name),
+                        { includeMetadataChanges: true }
             (snap) => cb({ fromCache: snap.metadata.fromCache, docs: snap.docs.map((d) => ({ id: d.id, data: () => d.data() })) }),
             err
           );
